@@ -55,6 +55,7 @@ import com.example.ui.theme.WhatsAppGreen
 fun AccountsModalBottomSheet(
     accounts: List<Account>,
     onSelectAccount: (String) -> Unit,
+    onAddNewAccount: () -> Unit,
     onDismiss: () -> Unit
 ) {
     ModalBottomSheet(
@@ -132,7 +133,10 @@ fun AccountsModalBottomSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { /* Adicionar conta */ }
+                    .clickable {
+                        onDismiss()
+                        onAddNewAccount()
+                    }
                     .padding(vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -246,74 +250,65 @@ fun NewChatDialog(
     onDismiss: () -> Unit,
     onSelectContact: (name: String, phoneOrUsername: String) -> Unit
 ) {
-    var contactQuery by remember { mutableStateOf("") }
-
-    val sampleContacts = listOf(
-        "Mariana Costa" to "@marianacosta",
-        "Lucas Mendes" to "+55 11 99887-6655",
-        "Rodrigo Silva" to "@rodrigo.dev",
-        "Camila Santos" to "+55 21 98877-4433",
-        "Beatriz Albuquerque" to "@beatriz.arq"
-    )
+    var contactName by remember { mutableStateOf("") }
+    var contactHandleOrPhone by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Nova Conversa", fontWeight = FontWeight.Bold) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
-                OutlinedTextField(
-                    value = contactQuery,
-                    onValueChange = { contactQuery = it },
-                    placeholder = { Text("Pesquisar nome, número ou @username") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
                 Text(
-                    text = "Contatos no WhatsApp",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = WhatsAppGreen
+                    text = "Insira os dados do contato para iniciar uma conversa direta:",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                sampleContacts.filter {
-                    contactQuery.isBlank() || it.first.contains(contactQuery, ignoreCase = true) || it.second.contains(contactQuery, ignoreCase = true)
-                }.forEach { (name, handle) ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                onSelectContact(name, handle)
-                                onDismiss()
-                            }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(WhatsAppGreen.copy(alpha = 0.15f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Person, contentDescription = null, tint = WhatsAppGreen)
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                            Text(handle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
+                OutlinedTextField(
+                    value = contactName,
+                    onValueChange = { contactName = it },
+                    label = { Text("Nome do contato") },
+                    placeholder = { Text("ex: Maria Santos") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("new_chat_name_input")
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = contactHandleOrPhone,
+                    onValueChange = { contactHandleOrPhone = it },
+                    label = { Text("Telefone ou @username") },
+                    placeholder = { Text("ex: +55 11 98888-7777 ou @maria") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("new_chat_handle_input")
+                )
             }
         },
-        confirmButton = {},
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (contactName.isNotBlank() && contactHandleOrPhone.isNotBlank()) {
+                        onSelectContact(contactName.trim(), contactHandleOrPhone.trim())
+                        onDismiss()
+                    }
+                },
+                enabled = contactName.isNotBlank() && contactHandleOrPhone.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = WhatsAppGreen),
+                modifier = Modifier.testTag("start_chat_confirm_button")
+            ) {
+                Text("Conversar")
+            }
+        },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Fechar")
+                Text("Cancelar")
             }
         }
     )

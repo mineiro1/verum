@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.data.WhatsAppRepository
 import com.example.model.ActiveCallState
 import com.example.model.AudioPlayerState
 import com.example.model.CallType
@@ -30,6 +31,7 @@ import com.example.ui.components.NewChatDialog
 import com.example.ui.components.WhatsAppBottomBar
 import com.example.ui.components.WhatsAppTopBar
 import com.example.ui.screens.ActiveCallScreen
+import com.example.ui.screens.AuthScreen
 import com.example.ui.screens.CallsScreen
 import com.example.ui.screens.ChatDetailScreen
 import com.example.ui.screens.ChatsScreen
@@ -42,6 +44,7 @@ import com.example.ui.theme.MyApplicationTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WhatsAppRepository.initPreferences(applicationContext)
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme {
@@ -76,10 +79,24 @@ fun WhatsAppMainApp(
     val isProfileOpen by viewModel.isProfileOpen.collectAsState()
     val isAccountsModalOpen by viewModel.isAccountsModalOpen.collectAsState()
     val isChatLockAuthOpen by viewModel.isChatLockAuthOpen.collectAsState()
+    val isAuthScreenOpen by viewModel.isAuthScreenOpen.collectAsState()
     val replyingToMessage by viewModel.replyingToMessage.collectAsState()
     val editingMessage by viewModel.editingMessage.collectAsState()
 
     var isNewChatDialogOpen by remember { mutableStateOf(false) }
+
+    // 0. FULL SCREEN: User Onboarding & Account Creation Screen
+    if (isAuthScreenOpen) {
+        AuthScreen(
+            onCompleteAuth = { name, phone, username, avatarUrl ->
+                viewModel.registerAccount(name, phone, username, avatarUrl)
+            },
+            onCancel = if (accounts.isNotEmpty()) {
+                { viewModel.setAuthScreenOpen(false) }
+            } else null
+        )
+        return
+    }
 
     // 1. FULL SCREEN: Active VoIP / WebRTC Call Screen
     if (activeCall.isInCall) {
@@ -115,7 +132,8 @@ fun WhatsAppMainApp(
             onUpdateProfile = { name, status, username ->
                 viewModel.updateProfile(name, status, username)
             },
-            onOpenAccountsModal = { viewModel.setAccountsModalOpen(true) }
+            onOpenAccountsModal = { viewModel.setAccountsModalOpen(true) },
+            onDeleteAccount = { viewModel.deleteAccount() }
         )
         return
     }
@@ -172,6 +190,7 @@ fun WhatsAppMainApp(
                 onMetaAiClick = { viewModel.openChat("chat_meta_ai") },
                 onProfileClick = { viewModel.setProfileOpen(true) },
                 onAccountsClick = { viewModel.setAccountsModalOpen(true) },
+                onNewAccountClick = { viewModel.setAuthScreenOpen(true) },
                 onLockedChatsClick = {
                     if (isChatLockUnlocked) {
                         // Already unlocked, lock it
@@ -242,14 +261,15 @@ fun WhatsAppMainApp(
                 NavigationTab.COMMUNITIES -> {
                     CommunitiesScreen(
                         communities = communities,
-                        onCommunityGroupClick = { groupId -> viewModel.openChat("chat_2") }
+                        onCommunityGroupClick = { groupId -> viewModel.openCommunityGroup(groupId) }
                     )
                 }
 
                 NavigationTab.CALLS -> {
                     CallsScreen(
                         calls = calls,
-                        onStartCall = { name, avatar, type -> viewModel.startCall(name, avatar, type) }
+                        onStartCall = { name, avatar, type -> viewModel.startCall(name, avatar, type) },
+                        onNewCallClick = { isNewChatDialogOpen = true }
                     )
                 }
             }
@@ -261,6 +281,7 @@ fun WhatsAppMainApp(
         AccountsModalBottomSheet(
             accounts = accounts,
             onSelectAccount = { accountId -> viewModel.switchAccount(accountId) },
+            onAddNewAccount = { viewModel.setAuthScreenOpen(true) },
             onDismiss = { viewModel.setAccountsModalOpen(false) }
         )
     }
@@ -278,8 +299,7 @@ fun WhatsAppMainApp(
         NewChatDialog(
             onDismiss = { isNewChatDialogOpen = false },
             onSelectContact = { name, handle ->
-                // Opens Mariana Costa or first chat as target
-                viewModel.openChat("chat_1")
+                viewModel.startNewChat(name, handle)
             }
         )
     }

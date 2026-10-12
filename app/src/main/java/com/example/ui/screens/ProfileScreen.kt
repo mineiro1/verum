@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AlternateEmail
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.SwitchAccount
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -68,7 +70,8 @@ fun ProfileScreen(
     profile: UserProfile,
     onBack: () -> Unit,
     onUpdateProfile: (name: String, status: String, username: String) -> Unit,
-    onOpenAccountsModal: () -> Unit
+    onOpenAccountsModal: () -> Unit,
+    onDeleteAccount: () -> Unit
 ) {
     BackHandler { onBack() }
 
@@ -77,6 +80,7 @@ fun ProfileScreen(
     var editStatus by remember { mutableStateOf(profile.statusText) }
     var editUsername by remember { mutableStateOf(profile.username) }
     var showQrDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -241,8 +245,65 @@ fun ProfileScreen(
                 Text("Alternar Conta (Múltiplas Contas)", fontWeight = FontWeight.Bold)
             }
 
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Delete Account Button (Google Play & Privacy Compliant)
+            Button(
+                onClick = { showDeleteDialog = true },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Red.copy(alpha = 0.12f),
+                    contentColor = Color.Red
+                ),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("delete_account_button")
+            ) {
+                Icon(Icons.Default.DeleteForever, contentDescription = null, tint = Color.Red)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Apagar minha conta", fontWeight = FontWeight.Bold, color = Color.Red)
+            }
+
             Spacer(modifier = Modifier.height(30.dp))
         }
+    }
+
+    // Delete Account Confirmation Dialog
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Warning, contentDescription = null, tint = Color.Red)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Apagar esta conta?", fontWeight = FontWeight.Bold, color = Color.Red)
+                }
+            },
+            text = {
+                Text(
+                    text = "Atenção: Apagar sua conta apagará permanentemente seu perfil, seu número de telefone e suas mensagens no Verum e no Supabase. Esta ação não pode ser desfeita.",
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteDialog = false
+                        onDeleteAccount()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("Sim, apagar conta", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 
     // Edit Profile Modal Dialog

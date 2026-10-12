@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.Lock
@@ -72,6 +73,7 @@ fun WhatsAppTopBar(
     onMetaAiClick: () -> Unit,
     onProfileClick: () -> Unit,
     onAccountsClick: () -> Unit,
+    onNewAccountClick: () -> Unit,
     onLockedChatsClick: () -> Unit,
     onCameraClick: () -> Unit
 ) {
@@ -235,6 +237,14 @@ fun WhatsAppTopBar(
                                     onClick = {
                                         showMenu = false
                                         onAccountsClick()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Cadastrar Nova Conta") },
+                                    leadingIcon = { Icon(Icons.Default.PersonAdd, contentDescription = null) },
+                                    onClick = {
+                                        showMenu = false
+                                        onNewAccountClick()
                                     }
                                 )
                                 DropdownMenuItem(

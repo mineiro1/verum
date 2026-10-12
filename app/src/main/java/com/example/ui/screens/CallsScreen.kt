@@ -49,7 +49,8 @@ import com.example.ui.theme.WhatsAppGreen
 @Composable
 fun CallsScreen(
     calls: List<CallLog>,
-    onStartCall: (contactName: String, contactAvatar: String?, type: CallType) -> Unit
+    onStartCall: (contactName: String, contactAvatar: String?, type: CallType) -> Unit,
+    onNewCallClick: () -> Unit = {}
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -107,6 +108,30 @@ fun CallsScreen(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            if (calls.isEmpty()) {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Nenhuma chamada recente",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Para iniciar uma chamada de voz ou vídeo, toque no botão abaixo.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
+                }
             }
 
             // Calls List
@@ -198,13 +223,7 @@ fun CallsScreen(
 
         // Floating Action Button to start call
         FloatingActionButton(
-            onClick = {
-                onStartCall(
-                    "Mariana Costa",
-                    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
-                    CallType.VIDEO
-                )
-            },
+            onClick = onNewCallClick,
             containerColor = WhatsAppGreen,
             contentColor = Color.White,
             shape = RoundedCornerShape(16.dp),

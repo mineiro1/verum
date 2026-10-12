@@ -5,6 +5,7 @@ import com.example.BuildConfig
 import com.example.model.Message
 import com.example.model.MessageStatus
 import com.example.model.MessageType
+import com.example.model.UserProfile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -39,6 +40,70 @@ class SupabaseService {
 
     val isConfigured: Boolean
         get() = baseUrl.isNotBlank() && anonKey.isNotBlank() && baseUrl.startsWith("http")
+
+    fun registerUser(profile: UserProfile, onComplete: (() -> Unit)? = null) {
+        if (!isConfigured) {
+            onComplete?.invoke()
+            return
+        }
+
+        val jsonBody = JSONObject().apply {
+            put("id", profile.id)
+            put("phone", profile.phone)
+            put("username", profile.username)
+            put("name", profile.name)
+            put("avatar_url", profile.avatarUrl ?: JSONObject.NULL)
+            put("status_text", profile.statusText)
+            put("public_key", profile.publicKeyFingerprint)
+        }.toString()
+
+        val request = Request.Builder()
+            .url("$baseUrl/rest/v1/users")
+            .addHeader("apikey", anonKey)
+            .addHeader("Authorization", "Bearer $anonKey")
+            .addHeader("Content-Type", "application/json")
+            .addHeader("Prefer", "resolution=merge-duplicates")
+            .post(jsonBody.toRequestBody(jsonMediaType))
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e(tag, "Falha ao registrar usuário no Supabase: ${e.message}")
+                onComplete?.invoke()
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    if (response.isSuccessful) {
+                        Log.d(tag, "Usuário registrado com sucesso no Supabase: ${profile.username}")
+                    } else {
+                        Log.e(tag, "Erro ao registrar usuário HTTP ${response.code}: ${response.body?.string()}")
+                    }
+                    onComplete?.invoke()
+                }
+            }
+        })
+    }
+
+    fun deleteUser(userId: String) {
+        if (!isConfigured) return
+        val request = Request.Builder()
+            .url("$baseUrl/rest/v1/users?id=eq.$userId")
+            .addHeader("apikey", anonKey)
+            .addHeader("Authorization", "Bearer $anonKey")
+            .delete()
+            .build()
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e(tag, "Falha ao excluir usuário no Supabase: ${e.message}")
+            }
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    Log.d(tag, "Usuário excluído do Supabase: $userId (Status: ${response.code})")
+                }
+            }
+        })
+    }
 
     fun sendMessage(message: Message, onSuccess: (() -> Unit)? = null, onError: ((String) -> Unit)? = null) {
         if (!isConfigured) {

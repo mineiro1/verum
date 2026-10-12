@@ -1,5 +1,7 @@
 package com.example.data
 
+import android.content.Context
+import android.content.SharedPreferences
 import com.example.model.Account
 import com.example.model.ActiveCallState
 import com.example.model.AudioPlayerState
@@ -33,42 +35,31 @@ import java.util.Locale
 import java.util.UUID
 
 class WhatsAppRepository {
+    companion object {
+        private var sharedPrefs: SharedPreferences? = null
+
+        fun initPreferences(context: Context) {
+            sharedPrefs = context.getSharedPreferences("whatsapp_user_prefs", Context.MODE_PRIVATE)
+        }
+    }
+
     private val scope = CoroutineScope(Dispatchers.Default)
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
     val supabaseService = SupabaseService()
 
-    // Active User Accounts
-    private val _accounts = MutableStateFlow(
-        listOf(
-            Account(
-                id = "acc_primary",
-                name = "Carlos Silva",
-                phone = "+55 (11) 98765-4321",
-                username = "@carlos.silva",
-                avatarUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
-                isActive = true
-            ),
-            Account(
-                id = "acc_business",
-                name = "Carlos Silva (Trabalho)",
-                phone = "+55 (11) 91234-5678",
-                username = "@carlos.biz",
-                avatarUrl = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
-                isActive = false
-            )
-        )
-    )
+    // Active User Accounts (Starts completely empty for clean production install)
+    private val _accounts = MutableStateFlow<List<Account>>(emptyList())
     val accounts: StateFlow<List<Account>> = _accounts.asStateFlow()
 
     private val _currentUser = MutableStateFlow(
         UserProfile(
-            id = "user_me",
-            name = "Carlos Silva",
-            username = "carlos.silva",
-            phone = "+55 (11) 98765-4321",
+            id = "",
+            name = "",
+            username = "",
+            phone = "",
             statusText = "Olá! Estou usando o Verum.",
-            avatarUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
-            publicKeyFingerprint = "7392 4810 5928 1048 3920 4819 0284 8192 4819 4028 1948 2910"
+            avatarUrl = null,
+            publicKeyFingerprint = ""
         )
     )
     val currentUser: StateFlow<UserProfile> = _currentUser.asStateFlow()
@@ -111,6 +102,7 @@ class WhatsAppRepository {
     val activeCall: StateFlow<ActiveCallState> = _activeCall.asStateFlow()
 
     init {
+        loadPersistedUser()
         seedInitialData()
         startAudioTicker()
         startCallTimerTicker()
@@ -123,7 +115,39 @@ class WhatsAppRepository {
         }
     }
 
+    private fun loadPersistedUser() {
+        val prefs = sharedPrefs ?: return
+        val savedPhone = prefs.getString("user_phone", "") ?: ""
+        val savedName = prefs.getString("user_name", "") ?: ""
+        val savedUsername = prefs.getString("user_username", "") ?: ""
+        val savedId = prefs.getString("user_id", "") ?: ""
+        val savedAvatar = prefs.getString("user_avatar", null)
+
+        if (savedPhone.isNotBlank() && savedName.isNotBlank()) {
+            val profile = UserProfile(
+                id = savedId.ifBlank { UUID.randomUUID().toString() },
+                name = savedName,
+                username = savedUsername,
+                phone = savedPhone,
+                statusText = "Olá! Estou usando o Verum.",
+                avatarUrl = savedAvatar,
+                publicKeyFingerprint = "7392 4810 5928 1048 3920 4819 0284 8192 4819 4028 1948 2910"
+            )
+            _currentUser.value = profile
+            val account = Account(
+                id = profile.id,
+                name = profile.name,
+                phone = profile.phone,
+                username = "@$savedUsername",
+                avatarUrl = profile.avatarUrl,
+                isActive = true
+            )
+            _accounts.value = listOf(account)
+        }
+    }
+
     private fun seedInitialData() {
+        // Clean production setup: No mock contacts or fake accounts
         val metaAiChat = Chat(
             id = "chat_meta_ai",
             name = "Meta AI",
@@ -132,358 +156,20 @@ class WhatsAppRepository {
             isGroup = false,
             isMetaAi = true,
             unreadCount = 0,
-            isPinned = true,
-            lastMessage = "Posso criar imagens, responder perguntas ou ajudar com código!",
-            lastMessageTime = "10:14",
-            lastMessageTimestamp = System.currentTimeMillis() - 1000 * 60 * 15,
+            isPinned = false,
+            lastMessage = "Olá! Como posso ajudar você hoje no Verum?",
+            lastMessageTime = "",
+            lastMessageTimestamp = System.currentTimeMillis(),
             lastMessageStatus = MessageStatus.READ,
             aboutStatus = "Assistente de Inteligência Artificial Oficial"
         )
-
-        val chat1 = Chat(
-            id = "chat_1",
-            name = "Mariana Costa",
-            username = "@marianacosta",
-            avatarUrl = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
-            unreadCount = 2,
-            isPinned = true,
-            isFavorite = true,
-            lastMessage = "Vou te mandar as fotos em HD da viagem agora!",
-            lastMessageTime = "10:28",
-            lastMessageTimestamp = System.currentTimeMillis() - 1000 * 60 * 2,
-            lastMessageStatus = MessageStatus.READ,
-            lastMessageIsFromMe = false,
-            typingUser = null,
-            aboutStatus = "A vida é feita de momentos ✨"
-        )
-
-        val chat2 = Chat(
-            id = "chat_2",
-            name = "Desenvolvimento Android 🚀",
-            avatarUrl = "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=150",
-            isGroup = true,
-            membersCount = 48,
-            unreadCount = 5,
-            isPinned = true,
-            lastMessage = "Rodrigo: A nova versão do Kotlin 2.2 já está disponível para testes.",
-            lastMessageTime = "09:50",
-            lastMessageTimestamp = System.currentTimeMillis() - 1000 * 60 * 45,
-            lastMessageStatus = MessageStatus.READ,
-            aboutStatus = "Grupo oficial de devs Mobile"
-        )
-
-        val chat3 = Chat(
-            id = "chat_3",
-            name = "Lucas Mendes",
-            username = "@lucasmendes",
-            avatarUrl = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150",
-            unreadCount = 0,
-            lastMessage = "Mensagem de voz (0:24)",
-            lastMessageTime = "Ontem",
-            lastMessageTimestamp = System.currentTimeMillis() - 1000 * 60 * 60 * 20,
-            lastMessageStatus = MessageStatus.READ,
-            lastMessageIsFromMe = true,
-            aboutStatus = "Ocupado no momento."
-        )
-
-        val chat4 = Chat(
-            id = "chat_4",
-            name = "Família Silva 🏡",
-            avatarUrl = "https://images.unsplash.com/photo-1511895426328-dc8714191300?w=150",
-            isGroup = true,
-            membersCount = 12,
-            unreadCount = 0,
-            lastMessage = "Tia Lúcia: Quem vai levar a sobremesa no domingo?",
-            lastMessageTime = "Ontem",
-            lastMessageTimestamp = System.currentTimeMillis() - 1000 * 60 * 60 * 24,
-            lastMessageStatus = MessageStatus.READ,
-            aboutStatus = "Família unida"
-        )
-
-        val chatLocked = Chat(
-            id = "chat_locked_1",
-            name = "Projetos Secretos 🔒",
-            avatarUrl = "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=150",
-            isGroup = false,
-            isLocked = true,
-            unreadCount = 0,
-            lastMessage = "Os dados confidenciais foram arquivados com sucesso.",
-            lastMessageTime = "08:12",
-            lastMessageTimestamp = System.currentTimeMillis() - 1000 * 60 * 60 * 30,
-            lastMessageStatus = MessageStatus.READ,
-            aboutStatus = "Sigiloso"
-        )
-
-        _chats.value = listOf(metaAiChat, chat1, chat2, chat3, chat4, chatLocked)
-
-        // Seed Messages for Mariana Costa (chat_1)
-        val initialMarianaMessages = listOf(
-            Message(
-                id = "m_1",
-                chatId = "chat_1",
-                senderId = "chat_1",
-                senderName = "Mariana Costa",
-                text = "Oi Carlos! Tudo bem? Você conseguiu ver aquele documento do projeto?",
-                timestamp = System.currentTimeMillis() - 1000 * 60 * 60,
-                type = MessageType.TEXT,
-                status = MessageStatus.READ,
-                isFromMe = false
-            ),
-            Message(
-                id = "m_2",
-                chatId = "chat_1",
-                senderId = "user_me",
-                senderName = "Carlos Silva",
-                text = "Oi Mari! Sim, dei uma olhada. Ficou excelente! *Destaque para os prazos* que ficaram bem realistas.",
-                timestamp = System.currentTimeMillis() - 1000 * 60 * 50,
-                type = MessageType.TEXT,
-                status = MessageStatus.READ,
-                isFromMe = true,
-                reactions = listOf(Reaction("👍", 1, false), Reaction("❤️", 1, true))
-            ),
-            Message(
-                id = "m_3",
-                chatId = "chat_1",
-                senderId = "user_me",
-                senderName = "Carlos Silva",
-                type = MessageType.AUDIO,
-                timestamp = System.currentTimeMillis() - 1000 * 60 * 35,
-                status = MessageStatus.READ,
-                isFromMe = true,
-                audioDurationSeconds = 18,
-                audioWaveform = listOf(0.2f, 0.5f, 0.8f, 0.4f, 0.9f, 0.7f, 0.3f, 0.6f, 0.85f, 0.45f, 0.95f, 0.6f, 0.3f, 0.5f, 0.7f, 0.4f),
-                audioTranscription = "Deixei anotado também os pontos da reunião com a equipe de UI. A gente alinha tudo amanhã às 14h."
-            ),
-            Message(
-                id = "m_4",
-                chatId = "chat_1",
-                senderId = "chat_1",
-                senderName = "Mariana Costa",
-                text = "Perfeito! Também criei uma enquete com o time sobre o formato:",
-                timestamp = System.currentTimeMillis() - 1000 * 60 * 20,
-                type = MessageType.POLL,
-                status = MessageStatus.READ,
-                isFromMe = false,
-                pollData = PollData(
-                    question = "Qual melhor horário para nossa daily?",
-                    options = listOf(
-                        PollOption("opt_1", "09:30 da manhã", votes = 3, voterIds = listOf("user_1", "user_2", "user_me")),
-                        PollOption("opt_2", "14:00 da tarde", votes = 1, voterIds = listOf("user_3")),
-                        PollOption("opt_3", "17:00 encerramento", votes = 0, voterIds = emptyList())
-                    ),
-                    allowMultipleAnswers = false
-                )
-            ),
-            Message(
-                id = "m_5",
-                chatId = "chat_1",
-                senderId = "chat_1",
-                senderName = "Mariana Costa",
-                text = "Foto de visualização única do rascunho do protótipo:",
-                timestamp = System.currentTimeMillis() - 1000 * 60 * 10,
-                type = MessageType.IMAGE,
-                status = MessageStatus.READ,
-                isFromMe = false,
-                isViewOnce = true,
-                isViewOnceOpened = false,
-                mediaUrl = "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=800",
-                mediaCaption = "Wireframe conceitual"
-            ),
-            Message(
-                id = "m_6",
-                chatId = "chat_1",
-                senderId = "chat_1",
-                senderName = "Mariana Costa",
-                text = "Vou te mandar as fotos em HD da viagem agora!",
-                timestamp = System.currentTimeMillis() - 1000 * 60 * 2,
-                type = MessageType.TEXT,
-                status = MessageStatus.READ,
-                isFromMe = false
-            )
-        )
-
-        // Seed Messages for Meta AI (chat_meta_ai)
-        val initialMetaAiMessages = listOf(
-            Message(
-                id = "meta_1",
-                chatId = "chat_meta_ai",
-                senderId = "chat_meta_ai",
-                senderName = "Meta AI",
-                text = "Olá, Carlos! Eu sou a Meta AI. Você pode me fazer perguntas de qualquer assunto ou digitar `/imagine` seguido de uma descrição para gerar imagens incríveis.",
-                timestamp = System.currentTimeMillis() - 1000 * 60 * 30,
-                type = MessageType.TEXT,
-                status = MessageStatus.READ,
-                isFromMe = false
-            ),
-            Message(
-                id = "meta_2",
-                chatId = "chat_meta_ai",
-                senderId = "user_me",
-                senderName = "Carlos Silva",
-                text = "/imagine um astronauta tomando café em marte com vista para a Terra ao fundo em estilo aquarela",
-                timestamp = System.currentTimeMillis() - 1000 * 60 * 16,
-                type = MessageType.TEXT,
-                status = MessageStatus.READ,
-                isFromMe = true
-            ),
-            Message(
-                id = "meta_3",
-                chatId = "chat_meta_ai",
-                senderId = "chat_meta_ai",
-                senderName = "Meta AI",
-                text = "Aqui está a imagem gerada para o seu pedido:",
-                timestamp = System.currentTimeMillis() - 1000 * 60 * 15,
-                type = MessageType.IMAGE,
-                status = MessageStatus.READ,
-                isFromMe = false,
-                mediaUrl = "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800",
-                mediaCaption = "Aquarela: Astronauta contemplando a Terra a partir de Marte",
-                reactions = listOf(Reaction("✨", 1, true))
-            )
-        )
-
-        _messages.value = mapOf(
-            "chat_1" to initialMarianaMessages,
-            "chat_meta_ai" to initialMetaAiMessages
-        )
-
-        // Seed Stories (Status)
-        _stories.value = listOf(
-            StatusStory(
-                id = "story_me",
-                userId = "user_me",
-                userName = "Meu status",
-                userAvatarUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
-                caption = "Dia produtivo programando em Jetpack Compose!",
-                imageUrl = "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800",
-                timestamp = System.currentTimeMillis() - 1000 * 60 * 45,
-                isMine = true,
-                viewersCount = 14
-            ),
-            StatusStory(
-                id = "story_1",
-                userId = "chat_1",
-                userName = "Mariana Costa",
-                userAvatarUrl = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
-                caption = "Pôr do sol incrível na praia hoje 🌅",
-                imageUrl = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800",
-                timestamp = System.currentTimeMillis() - 1000 * 60 * 120,
-                isViewed = false
-            ),
-            StatusStory(
-                id = "story_2",
-                userId = "chat_3",
-                userName = "Lucas Mendes",
-                userAvatarUrl = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150",
-                textStatus = "Foco total na entrega do sprint! Não me procurem até as 18h ☕💻",
-                backgroundColorHex = 0xFF5C6BC0,
-                timestamp = System.currentTimeMillis() - 1000 * 60 * 240,
-                isViewed = true
-            )
-        )
-
-        // Seed Channels
-        _channels.value = listOf(
-            Channel(
-                id = "ch_whatsapp",
-                name = "WhatsApp",
-                handle = "@whatsapp",
-                avatarUrl = "https://images.unsplash.com/photo-1614680376593-902f749f7ffc?w=150",
-                description = "Notícias oficiais, lançamentos de novos recursos e dicas de segurança do WhatsApp.",
-                followersCount = "158M seguidores",
-                isVerified = true,
-                isFollowing = true,
-                unreadUpdatesCount = 1,
-                lastPostTime = "Hoje 08:30"
-            ),
-            Channel(
-                id = "ch_tech",
-                name = "Tech Brasil News",
-                handle = "@technewsbr",
-                avatarUrl = "https://images.unsplash.com/photo-1518770660439-4636190af475?w=150",
-                description = "As principais novidades em tecnologia, startups, inteligência artificial e gadgets.",
-                followersCount = "1,4M seguidores",
-                isVerified = true,
-                isFollowing = true,
-                unreadUpdatesCount = 3,
-                lastPostTime = "Hoje 10:15"
-            ),
-            Channel(
-                id = "ch_meta",
-                name = "Meta AI Hub",
-                handle = "@metaai",
-                avatarUrl = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150",
-                description = "Descubra prompts criativos e inovações em Inteligência Artificial generativa.",
-                followersCount = "12M seguidores",
-                isVerified = true,
-                isFollowing = false,
-                unreadUpdatesCount = 0,
-                lastPostTime = "Ontem"
-            )
-        )
-
-        _channelPosts.value = mapOf(
-            "ch_whatsapp" to listOf(
-                ChannelPost(
-                    id = "post_1",
-                    channelId = "ch_whatsapp",
-                    text = "Apresentando as mensagens de visualização única com proteção aprimorada e suporte a envio em Alta Definição (HD)! Atualize seu app agora.",
-                    imageUrl = "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800",
-                    timestamp = System.currentTimeMillis() - 1000 * 60 * 180,
-                    viewsCount = "1.8M",
-                    reactions = listOf(Reaction("🔥", 1240, true), Reaction("❤️", 890, false), Reaction("👏", 450, false))
-                )
-            )
-        )
-
-        // Seed Communities
-        _communities.value = listOf(
-            Community(
-                id = "comm_1",
-                name = "Comunidade Tech & Mobile BR",
-                description = "Espaço unificado para desenvolvedores mobile trocarem experiências, vagas e códigos.",
-                avatarUrl = "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150",
-                announcementGroupId = "ann_1",
-                announcementLastMessage = "Avisos: Inscrições abertas para o Hackathon Android 2026!",
-                topicGroups = listOf(
-                    CommunityTopicGroup("tg_1", "Kotlin & Jetpack Compose", "Qual a melhor prática para MVI?", "10:12", 2),
-                    CommunityTopicGroup("tg_2", "Oportunidades & Vagas Dev", "Vaga Sênior Android Remoto", "Ontem", 0),
-                    CommunityTopicGroup("tg_3", "Dúvidas & Arquitetura", "Clean Arch vs Modularização", "2 dias atrás", 0)
-                ),
-                membersCount = 384
-            )
-        )
-
-        // Seed Calls
-        _calls.value = listOf(
-            CallLog(
-                id = "call_1",
-                contactName = "Mariana Costa",
-                contactAvatarUrl = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
-                type = CallType.VIDEO,
-                status = CallStatus.INCOMING,
-                timestamp = "Hoje, 09:15",
-                durationSeconds = 340
-            ),
-            CallLog(
-                id = "call_2",
-                contactName = "Lucas Mendes",
-                contactAvatarUrl = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150",
-                type = CallType.AUDIO,
-                status = CallStatus.MISSED,
-                timestamp = "Hoje, 08:04",
-                durationSeconds = 0
-            ),
-            CallLog(
-                id = "call_3",
-                contactName = "Desenvolvimento Android 🚀",
-                contactAvatarUrl = "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=150",
-                type = CallType.AUDIO,
-                status = CallStatus.OUTGOING,
-                timestamp = "Ontem, 18:22",
-                durationSeconds = 1250
-            )
-        )
+        _chats.value = listOf(metaAiChat)
+        _messages.value = emptyMap()
+        _stories.value = emptyList()
+        _channels.value = emptyList()
+        _channelPosts.value = emptyMap()
+        _communities.value = emptyList()
+        _calls.value = emptyList()
     }
 
     // Audio Playback Simulation Ticker
@@ -906,6 +592,111 @@ class WhatsAppRepository {
                 username = username.removePrefix("@")
             )
         }
+        supabaseService.registerUser(_currentUser.value)
+    }
+
+    fun registerAccount(name: String, phone: String, username: String, avatarUrl: String?) {
+        val cleanUsername = username.trim().removePrefix("@")
+        val newProfile = UserProfile(
+            id = UUID.randomUUID().toString(),
+            name = name.trim(),
+            username = cleanUsername,
+            phone = phone.trim(),
+            statusText = "Olá! Estou usando o Verum.",
+            avatarUrl = avatarUrl ?: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
+            publicKeyFingerprint = "7392 4810 5928 1048 3920 4819 0284 8192 4819 4028 1948 2910"
+        )
+        _currentUser.value = newProfile
+
+        val newAccount = Account(
+            id = newProfile.id,
+            name = newProfile.name,
+            phone = newProfile.phone,
+            username = "@$cleanUsername",
+            avatarUrl = newProfile.avatarUrl,
+            isActive = true
+        )
+
+        _accounts.update { list ->
+            list.map { it.copy(isActive = false) } + newAccount
+        }
+
+        sharedPrefs?.edit()
+            ?.putString("user_id", newProfile.id)
+            ?.putString("user_name", newProfile.name)
+            ?.putString("user_phone", newProfile.phone)
+            ?.putString("user_username", cleanUsername)
+            ?.putString("user_avatar", newProfile.avatarUrl)
+            ?.apply()
+
+        supabaseService.registerUser(newProfile)
+    }
+
+    fun deleteCurrentAccount() {
+        val current = _currentUser.value
+        supabaseService.deleteUser(current.id)
+
+        val remaining = _accounts.value.filter { it.id != current.id }
+        if (remaining.isNotEmpty()) {
+            val next = remaining.first().copy(isActive = true)
+            _accounts.value = remaining.map { if (it.id == next.id) next else it.copy(isActive = false) }
+            _currentUser.value = _currentUser.value.copy(
+                id = next.id,
+                name = next.name,
+                phone = next.phone,
+                username = next.username.removePrefix("@"),
+                avatarUrl = next.avatarUrl
+            )
+            sharedPrefs?.edit()
+                ?.putString("user_id", next.id)
+                ?.putString("user_name", next.name)
+                ?.putString("user_phone", next.phone)
+                ?.putString("user_username", next.username.removePrefix("@"))
+                ?.putString("user_avatar", next.avatarUrl)
+                ?.apply()
+        } else {
+            _accounts.value = emptyList()
+            _currentUser.value = UserProfile(
+                id = "",
+                name = "",
+                username = "",
+                phone = "",
+                statusText = "Olá! Estou usando o Verum.",
+                avatarUrl = null,
+                publicKeyFingerprint = ""
+            )
+            sharedPrefs?.edit()?.clear()?.apply()
+        }
+    }
+
+    fun getOrCreateChat(contactName: String, contactHandle: String): String {
+        val cleanName = contactName.trim()
+        val cleanHandle = if (contactHandle.trim().startsWith("@")) contactHandle.trim() else "@${contactHandle.trim()}"
+
+        val existing = _chats.value.find {
+            it.name.equals(cleanName, ignoreCase = true) ||
+                (it.username != null && it.username.equals(cleanHandle, ignoreCase = true))
+        }
+        if (existing != null) return existing.id
+
+        val newId = "chat_${UUID.randomUUID().toString().take(8)}"
+        val newChat = Chat(
+            id = newId,
+            name = cleanName,
+            username = cleanHandle,
+            avatarUrl = null,
+            isGroup = false,
+            isMetaAi = false,
+            unreadCount = 0,
+            isPinned = false,
+            lastMessage = "",
+            lastMessageTime = "",
+            lastMessageTimestamp = System.currentTimeMillis(),
+            lastMessageStatus = MessageStatus.SENT,
+            aboutStatus = "Disponível"
+        )
+        _chats.update { listOf(newChat) + it }
+        return newId
     }
 
     // Channel interactions

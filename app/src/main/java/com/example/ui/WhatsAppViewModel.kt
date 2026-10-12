@@ -68,6 +68,11 @@ class WhatsAppViewModel(
     private val _isChatLockAuthOpen = MutableStateFlow(false)
     val isChatLockAuthOpen: StateFlow<Boolean> = _isChatLockAuthOpen.asStateFlow()
 
+    private val _isAuthScreenOpen = MutableStateFlow(
+        repository.accounts.value.isEmpty() || repository.currentUser.value.phone.isBlank()
+    )
+    val isAuthScreenOpen: StateFlow<Boolean> = _isAuthScreenOpen.asStateFlow()
+
     private val _replyingToMessage = MutableStateFlow<Message?>(null)
     val replyingToMessage: StateFlow<Message?> = _replyingToMessage.asStateFlow()
 
@@ -139,6 +144,22 @@ class WhatsAppViewModel(
         _editingMessage.value = null
     }
 
+    fun startNewChat(name: String, handle: String): String {
+        val chatId = repository.getOrCreateChat(name, handle)
+        openChat(chatId)
+        return chatId
+    }
+
+    fun openCommunityGroup(groupId: String, groupName: String = "Grupo da Comunidade") {
+        val existing = repository.chats.value.find { it.id == groupId }
+        if (existing != null) {
+            openChat(groupId)
+        } else {
+            val newId = repository.getOrCreateChat(groupName, "@comunidade")
+            openChat(newId)
+        }
+    }
+
     fun closeChat() {
         _activeChatId.value = null
         _replyingToMessage.value = null
@@ -171,6 +192,23 @@ class WhatsAppViewModel(
 
     fun setChatLockAuthOpen(open: Boolean) {
         _isChatLockAuthOpen.value = open
+    }
+
+    fun setAuthScreenOpen(open: Boolean) {
+        _isAuthScreenOpen.value = open
+    }
+
+    fun registerAccount(name: String, phone: String, username: String, avatarUrl: String?) {
+        repository.registerAccount(name, phone, username, avatarUrl)
+        _isAuthScreenOpen.value = false
+    }
+
+    fun deleteAccount() {
+        repository.deleteCurrentAccount()
+        _isProfileOpen.value = false
+        if (repository.accounts.value.isEmpty()) {
+            _isAuthScreenOpen.value = true
+        }
     }
 
     // Forwarding to repository
