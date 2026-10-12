@@ -1,0 +1,6 @@
+{
+  "name": "Verum",
+  "description": "Mensageiro Verum com conversas em tempo real, atualizações (Status e Canais), comunidades, chamadas VoIP WebRTC, IA integrada e segurança de ponta a ponta.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

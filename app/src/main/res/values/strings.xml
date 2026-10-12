@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Verum</string>
+    <string name="chats">Conversas</string>
+    <string name="updates">Atualizações</string>
+    <string name="communities">Comunidades</string>
+    <string name="calls">Chamadas</string>
+    <string name="meta_ai">Meta AI</string>
+    <string name="search_hint">Pesquisar ou perguntar à Meta AI</string>
+</resources>

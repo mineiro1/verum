@@ -1,0 +1,176 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id               String       @id @default(uuid())
+  phone            String       @unique
+  username         String       @unique
+  name             String
+  avatarUrl        String?
+  statusText       String       @default("Olá! Estou usando o WhatsApp.")
+  publicKey        String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  sentMessages     Message[]    @relation("SentMessages")
+  chatMemberships  ChatMember[]
+  statuses         Status[]
+  reactions        Reaction[]
+  pollVotes        PollVote[]
+  callLogs         CallLog[]
+}
+
+model Chat {
+  id                   String       @id @default(uuid())
+  name                 String?
+  isGroup              Boolean      @default(false)
+  isChannel            Boolean      @default(false)
+  avatarUrl            String?
+  ephemeralHours       Int          @default(0)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  members              ChatMember[]
+  messages             Message[]
+}
+
+model ChatMember {
+  id        String   @id @default(uuid())
+  chatId    String
+  userId    String
+  role      String   @default("MEMBER") // ADMIN, MEMBER
+  isPinned  Boolean  @default(false)
+  isLocked  Boolean  @default(false)
+  isMuted   Boolean  @default(false)
+  joinedAt  DateTime @default(now())
+
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, userId])
+}
+
+enum MessageType {
+  TEXT
+  AUDIO
+  IMAGE
+  VIDEO
+  DOCUMENT
+  LOCATION
+  CONTACT
+  POLL
+  SYSTEM
+}
+
+enum MessageStatus {
+  SENDING
+  SENT
+  DELIVERED
+  READ
+}
+
+model Message {
+  id               String        @id @default(uuid())
+  chatId           String
+  senderId         String
+  text             String?
+  type             MessageType   @default(TEXT)
+  status           MessageStatus @default(SENT)
+  isEdited         Boolean       @default(false)
+  isViewOnce       Boolean       @default(false)
+  isViewOnceOpened Boolean       @default(false)
+  replyToId        String?
+  mediaUrl         String?
+  mediaCaption     String?
+  fileName         String?
+  fileSize         String?
+  isHd             Boolean       @default(false)
+  audioDuration    Int?
+  audioWaveform    Float[]
+  transcription    String?
+  locationLat      Float?
+  locationLng      Float?
+  locationAddress  String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  chat             Chat          @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender           User          @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  reactions        Reaction[]
+  poll             Poll?
+}
+
+model Reaction {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+}
+
+model Poll {
+  id             String       @id @default(uuid())
+  messageId      String       @unique
+  question       String
+  allowMultiple  Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  message        Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  options        PollOption[]
+}
+
+model PollOption {
+  id        String     @id @default(uuid())
+  pollId    String
+  text      String
+  poll      Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes     PollVote[]
+}
+
+model PollVote {
+  id           String     @id @default(uuid())
+  pollOptionId String
+  userId       String
+  createdAt    DateTime   @default(now())
+
+  option       PollOption @relation(fields: [pollOptionId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pollOptionId, userId])
+}
+
+model Status {
+  id             String   @id @default(uuid())
+  userId         String
+  mediaUrl       String?
+  textStatus     String?
+  bgColorHex     String?
+  viewersCount   Int      @default(0)
+  createdAt      DateTime @default(now())
+  expiresAt      DateTime
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CallLog {
+  id           String   @id @default(uuid())
+  userId       String
+  contactName  String
+  type         String   // AUDIO, VIDEO
+  status       String   // INCOMING, OUTGOING, MISSED
+  durationSec  Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
